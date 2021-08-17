@@ -1,6 +1,0 @@
-REDIS_HOST = obs-demonstration-redis-cluster.lredk7.0001.use1.cache.amazonaws.com
-PG_USER = wuwjhtxr
-PG_DATABASE = Obsidian
-PG_PORT = 5432
-PG_HOSTNAME = obsidian-demo-postgresql-db.cis8xbsdarlr.us-east-1.rds.amazonaws.com
-PG_PASSWORD = jmhzbk-88Pn4_95BOxfUZluphaSYF_9e

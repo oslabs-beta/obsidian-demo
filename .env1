@@ -1,6 +1,0 @@
-REDIS_HOST = '127.0.0.1'
-PG_USER = chris
-PG_DATABASE = chris
-PG_PORT = 5432
-PG_HOSTNAME = 127.0.0.1
-PG_PASSWORD = Maddydog1
