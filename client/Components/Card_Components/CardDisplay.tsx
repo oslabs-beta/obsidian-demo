@@ -75,12 +75,13 @@ const CardDisplay = (props: any) => {
       props.setCardsResponse(newResponse.data);
     };
     const deleteMovie = async (e: any) => {
-      const deleteMovieMutation = `mutation {deleteMovie(id:${e.target.parentNode.parentNode.id}){
+      // const deleteMovieMutation = `mutation {deleteMovie(id:${e.target.parentNode.parentNode.id}){
+      const deleteMovieMutation = `mutation {deleteMovie(id:${props.id}){  
             id
             title
           }
           }`;
-      console.log(e);
+      console.log(e, props.id);
       await mutate(deleteMovieMutation, { toDelete: true });
       await setCache(new BrowserCache(cache.storage));
       const newResponse = await query(allMoviesQuery);
@@ -182,29 +183,47 @@ const CardDisplay = (props: any) => {
     };
     const handleSubmit = async (event: any) => {
       event.preventDefault();
-      const associateActorWithMovie = `
-  mutation addingActor{
-    associateActorWithMovie(input:{actorId:${event.target.parentNode.id},movieId: ${props.movieList[valueMovie]}, respType:ACTOR}){
-    ... on Actor{
-          id
-          movies {
+    //       const associateActorWithMovie = `
+    //   mutation addingActor{
+    //     associateActorWithMovie(input: { actorId: ${event.target.parentNode.id}, movieId: ${props.movieList[valueMovie]}, respType:ACTOR}){
+    //     ... on Actor{
+    //           id
+    //           movies {
+    //             id
+    //             actors {
+    //               id
+    //             }
+    //           }
+    //         }
+    //         ... on Movie{
+    //           id
+    //         }
+    //       }
+    //     }
+    // `;
+    const associateActorWithMovie = `
+    mutation addingActor{
+      associateActorWithMovie(input: { actorId: ${props.id}, movieId: ${props.movieList[valueMovie]}, respType:ACTOR}){
+      ... on Actor{
             id
-            actors {
+            movies {
               id
+              actors {
+                id
+              }
             }
           }
-        }
-        ... on Movie{
-          id
+          ... on Movie{
+            id
+          }
         }
       }
-    }
-`;
+    `;
       console.log('movieList', props.movieList);
       console.log('valueMovie', valueMovie);
       console.log('gql queryStr', associateActorWithMovie);
       const res = await mutate(associateActorWithMovie);
-      console.log('response fro, server', res);
+      console.log('response from server', res);
       const newResponse = await query(allActorsQuery);
       props.setCardsResponse(newResponse.data);
     };
@@ -242,7 +261,8 @@ const CardDisplay = (props: any) => {
     });
     //deleting actor
     const deleteActor = async (e: any) => {
-      const deleteActorMutation = `mutation {deleteActor(id:${e.target.parentNode.id}){
+      // const deleteActorMutation = `mutation {deleteActor(id:${e.target.parentNode.id}){
+      const deleteActorMutation = `mutation {deleteActor(id:${props.id}){
       id
       firstName
     }

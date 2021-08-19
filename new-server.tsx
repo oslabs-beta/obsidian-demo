@@ -1,7 +1,7 @@
 import { Application, Router } from 'https://deno.land/x/oak@v6.0.1/mod.ts';
 
 import { React, ReactDOMServer } from './deps.ts';
-import { ObsidianRouter, Cron } from './serverDeps.ts';
+import { Cron, ObsidianRouter } from './serverDeps.ts';
 import { createDb } from './server/db/db.ts';
 import resolvers from './server/resolvers.ts';
 import types from './server/schema.ts';
@@ -14,7 +14,7 @@ const app = new Application();
 app.use(async (ctx, next) => {
   await next();
   const rt = ctx.response.headers.get('X-Response-Time');
-  console.log(`${ctx.request.method} ${ctx.request.url} - ${rt}`);
+  //console.log(`${ctx.request.method} ${ctx.request.url} - ${rt}`);
 });
 
 app.use(async (ctx, next) => {
@@ -23,6 +23,7 @@ app.use(async (ctx, next) => {
   const ms = Date.now() - start;
   ctx.response.headers.set('X-Response-Time', `${ms}ms`);
 });
+
 // create and seed DB
 createDb();
 
@@ -66,17 +67,16 @@ router.get('/', (ctx: any) => {
 // const [_, clientJS] = await Deno.bundle('./client/client.tsx');
 
 const { files, diagnostics } = await Deno.emit('./client/client.tsx', {
-  bundle: 'esm',
+  bundle: 'module',
 });
 
 // Router for serving bundle
 const bundleRouter = new Router();
-bundleRouter.get('/static/client.js', (context) => {
-  context.response.headers.set('Content-Type', 'text/html');
+bundleRouter.get('/static/client.js', (ctx) => {
+  ctx.response.headers.set('Content-Type', 'text/html');
   // context.response.body = clientJS;
-  context.response.body = files['deno:///bundle.js'];
+  ctx.response.body = files['deno:///bundle.js'];
 });
-
 // Attach routes
 app.use(router.routes());
 app.use(staticFileMiddleware);
@@ -89,9 +89,15 @@ interface ObsRouter extends Router {
 // Create GraphQL Router
 const GraphQLRouter = await ObsidianRouter<ObsRouter>({
   Router,
+  // context: () => console.log('hi, Cameron'),
   typeDefs: types,
   resolvers: resolvers,
   redisPort: 6379,
+  useCache: true,
+  usePlayground: true,
+  useQueryCache: true,
+  useRebuildCache: true,
+  customIdentifier: ['id', '__typename'],
 });
 app.use(GraphQLRouter.routes(), GraphQLRouter.allowedMethods());
 

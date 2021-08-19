@@ -1,10 +1,9 @@
-// import { pool } from './db/db.ts';
 import { Pool } from 'https://deno.land/x/postgres/mod.ts';
-import { PoolClient } from 'https://deno.land/x/postgres/client.ts';
+// import { PoolClient } from 'https://deno.land/x/postgres/client.ts';
 
-let pg_port: any = Deno.env.get('PG_PORT');
-if (typeof pg_port === 'string') {
-  pg_port = parseInt(pg_port);
+let pgPort: number | string | undefined = Deno.env.get('PG_PORT');
+if (typeof pgPort === 'string') {
+  pgPort = parseInt(pgPort as string);
 }
 
 const config = {
@@ -12,7 +11,7 @@ const config = {
   database: Deno.env.get('PG_DATABASE'),
   password: Deno.env.get('PG_PASSWORD'),
   hostname: Deno.env.get('PG_HOSTNAME'),
-  port: pg_port,
+  port: pgPort,
 };
 
 const POOL_CONNECTIONS = 3; // breaks at 10+ due to ElephantSQL
@@ -22,23 +21,27 @@ let pool = new Pool(config, POOL_CONNECTIONS);
 const resolvers = {
   Query: {
     movies: async (
-      _: any,
-      { input }: { input: { genre?: String; order?: String; actor?: String } }
+      // Changed unused parameters to '_a'; follows TypeScript convention see https://github.com/Microsoft/TypeScript/issues/9458
+      _a: string,
+      { input }: { input: { genre?: string; order?: string; actor?: string } }
     ) => {
       try {
-        const client: PoolClient = await pool.connect();
+        const client = await pool.connect();
 
-        const result = await client.queryObject({
+        const {rows} = await client.queryObject<{id: number, title: string, genre: string, release_dt: string}>({
           text: 'SELECT * FROM obsidian_demo_schema.films;',
           args: [],
         });
+
         client.release();
-        let resObj = result.rows.map((arr) => {
-          return {
+
+        // Rename release_dt key to releaseYear
+        let resObj = rows.map((arr) => {
+          return { 
             id: arr.id,
             title: arr.title,
             genre: arr.genre,
-            releaseYear: arr.release_dt,
+            releaseYear: arr.release_dt
           };
         });
 
@@ -59,8 +62,9 @@ const resolvers = {
           }
           if (input.actor) {
             try {
-              const client: PoolClient = await pool.connect();
-              const result = await client.queryObject({
+              const client = await pool.connect();
+
+              const {rows} = await client.queryArray<[actor_id: number]>({
                 text: `
                   SELECT film_id
                   FROM obsidian_demo_schema.actor_films
@@ -68,9 +72,11 @@ const resolvers = {
                   `,
                 args: [input.actor],
               });
+
               client.release();
-              const arrOfIds = result.rows.map((arr) => arr[0]);
-              resObj = resObj.filter((obj: any) => arrOfIds.includes(obj.id));
+
+              const arrOfIds =  rows.map((arr) => arr[0]);
+              resObj = resObj.filter((obj) => arrOfIds.includes(obj.id));
             } catch (err) {
               console.log(err);
             }
@@ -84,15 +90,19 @@ const resolvers = {
         pool = new Pool(config, POOL_CONNECTIONS);
       }
     },
-    actors: async (_: any, { input }: { input: { film?: String } }) => {
+    actors: async (_a: string, { input }: { input: { film?: string } }) => {
       try {
-        const client: PoolClient = await pool.connect();
-        const result = await client.queryObject({
+        const client = await pool.connect();
+        
+        const {rows} = await client.queryObject<{id: number, first_name: string, last_name: string, nickname: string}>({
           text: 'SELECT * FROM obsidian_demo_schema.actors;',
           args: [],
-        });
+        })
+        
         client.release();
-        let resObj = result.rows.map((arr) => {
+        
+        // Map first_name and last_name keys of rows variable to firstName and lastName on resObj
+        let resObj = rows.map((arr) => {
           return {
             id: arr.id,
             firstName: arr.first_name,
@@ -100,20 +110,25 @@ const resolvers = {
             nickname: arr.nickname,
           };
         });
+
         if (input) {
           if (input.film) {
             try {
-              const client: PoolClient = await pool.connect();
-              const result = await client.queryObject({
-                text: `
+              const client = await pool.connect();
+                
+                const {rows} = await client.queryArray<[film_id: number]>({
+                  text: `
                   SELECT actor_id
                   FROM obsidian_demo_schema.actor_films
                   WHERE film_id = $1;
                   `,
-                args: [input.film],
-              });
-              client.release();
-              const arrOfIds = result.rows.map((arr) => arr[0]);
+                  args: [input.film],
+                })
+
+                client.release();
+
+              const arrOfIds = rows.map((arr) => arr[0]);
+
               resObj = resObj.filter((obj) => arrOfIds.includes(obj.id));
             } catch (err) {
               console.log(err);
@@ -133,10 +148,11 @@ const resolvers = {
     },
   },
   Movie: {
-    actors: async ({ id }: { id: String }) => {
+    actors: async ({ id }: { id: string }) => {
       try {
-        const client: PoolClient = await pool.connect();
-        const result = await client.queryObject({
+        const client = await pool.connect();
+
+        const {rows} = await client.queryObject<{id: number, first_name: string, last_name: string, nickname?: string}>({
           text: `
             SELECT a.*
             FROM obsidian_demo_schema.actors AS a
@@ -147,9 +163,12 @@ const resolvers = {
             WHERE f.id = $1;
             `,
           args: [id],
-        });
+        })
+
         client.release();
-        let resObj = result.rows.map((arr) => {
+
+        // Map first_name and last_name keys to firstName and lastName
+        const resObj = rows.map((arr) => {
           return {
             id: arr.id,
             firstName: arr.first_name,
@@ -167,10 +186,11 @@ const resolvers = {
     },
   },
   Actor: {
-    movies: async ({ id }: { id: String }) => {
+    movies: async ({ id }: { id: string }) => {
       try {
-        const client: PoolClient = await pool.connect();
-        const result = await client.queryObject({
+        const client = await pool.connect();
+
+        const {rows} = await client.queryObject<{id: number, title: string, genre: string, release_dt: number}>({
           text: `
             SELECT f.*
             FROM obsidian_demo_schema.films AS f
@@ -181,9 +201,11 @@ const resolvers = {
             WHERE a.id = $1;
             `,
           args: [id],
-        });
+        })
+
         client.release();
-        let resObj = result.rows.map((arr) => {
+
+        const resObj = rows.map((arr) => {
           return {
             id: arr.id,
             title: arr.title,
@@ -213,23 +235,26 @@ const resolvers = {
   },
   Mutation: {
     addMovie: async (
-      _: any,
+      _a: string,
       {
         input,
-      }: { input: { title: String; releaseYear: Number; genre: String } }
+      }: { input: { title: string; releaseYear: number; genre: string } }
     ) => {
       try {
-        const client: PoolClient = await pool.connect();
-        const result = await client.queryObject({
+        const client = await pool.connect();
+
+        const {rows} = await client.queryObject<{id: number, title: string, genre: string, release_dt: number}>({
           text: `
             INSERT INTO obsidian_demo_schema.films (title,release_dt, genre)
             VALUES ($1, $2, $3)
             RETURNING *;
             `,
           args: [input.title, input.releaseYear, input.genre],
-        });
+        })
+
         client.release();
-        const newMovieArr = result.rows[0];
+
+        const newMovieArr = rows[0];
         const newMovieObj = {
           id: newMovieArr.id,
           title: newMovieArr.title,
@@ -244,23 +269,27 @@ const resolvers = {
         pool = new Pool(config, POOL_CONNECTIONS);
       }
     },
-    deleteMovie: async (_: any, { id }: { id: String }) => {
+
+    deleteMovie: async (_a: string, { id }: { id: string }) => {
       try {
-        const client: PoolClient = await pool.connect();
-        const result = await client.queryObject({
+        const client = await pool.connect();
+
+        const {rows} = await client.queryObject<{id: number, title: string, genre: string, release_dt: number}>({
           text: `
             DELETE FROM obsidian_demo_schema.films
             WHERE id = $1
             RETURNING *;
             `,
           args: [id],
-        });
+        })
+
         client.release();
-        const deletedMovieArr = result.rows[0];
+
+        const deletedMovieArr = rows[0];
         const deletedMovieObj = {
           id: deletedMovieArr.id,
           title: deletedMovieArr.title,
-          genre: deletedMovieArr.genere,
+          genre: deletedMovieArr.genre,
           releaseYear: deletedMovieArr.release_dt,
         };
         return deletedMovieObj;
@@ -271,24 +300,28 @@ const resolvers = {
         pool = new Pool(config, POOL_CONNECTIONS);
       }
     },
+
     addActor: async (
-      _: any,
+      _a: string,
       {
         input,
-      }: { input: { firstName: String; lastName: String; nickname?: String } }
+      }: { input: { firstName: string; lastName: string; nickname?: string } }
     ) => {
       try {
-        const client: PoolClient = await pool.connect();
-        const result = await client.queryObject({
+        const client = await pool.connect();
+
+        const {rows} = await client.queryObject<{id: number, first_name: string, last_name: string, nickname: string}>({
           text: `
-            INSERT INTO obsidian_demo_schema.actors (first_name,last_name, nickname)
+            INSERT INTO obsidian_demo_schema.actors (first_name, last_name, nickname)
             VALUES ($1, $2, $3)
             RETURNING *;
             `,
           args: [input.firstName, input.lastName, input.nickname],
-        });
+        })
+
         client.release();
-        const newActorArr = result.rows[0];
+
+        const newActorArr = rows[0];
         const newActorObj = {
           id: newActorArr.id,
           firstName: newActorArr.first_name,
@@ -303,19 +336,22 @@ const resolvers = {
         pool = new Pool(config, POOL_CONNECTIONS);
       }
     },
-    deleteActor: async (_: any, { id }: { id: String }) => {
+    deleteActor: async (_a: string, { id }: { id: string }) => {
       try {
-        const client: PoolClient = await pool.connect();
-        const result = await client.queryObject({
+        const client = await pool.connect();
+
+        const {rows} = await client.queryObject<{id: number, first_name: string, last_name: string, nickname?: string}>({
           text: `
             DELETE FROM obsidian_demo_schema.actors
             WHERE id = $1
             RETURNING *;
             `,
           args: [id],
-        });
+        })
+
         client.release();
-        const deletedActorArr = result.rows[0];
+
+        const deletedActorArr = rows[0];
         const deletedActorObj = {
           id: deletedActorArr.id,
           firstName: deletedActorArr.first_name,
@@ -330,13 +366,15 @@ const resolvers = {
         pool = new Pool(config, POOL_CONNECTIONS);
       }
     },
+
     updateNickname: async (
-      _: any,
-      { input }: { input: { actorId: String; nickname: String } }
+      _a: string,
+      { input }: { input: { actorId: string; nickname: string } }
     ) => {
       try {
-        const client: PoolClient = await pool.connect();
-        const result = await client.queryObject({
+        const client = await pool.connect();
+
+        const {rows} = await client.queryObject<{id: number, first_name: string, last_name: string, nickname?: string}>({
           text: `
             UPDATE obsidian_demo_schema.actors
             SET nickname = $2
@@ -344,9 +382,11 @@ const resolvers = {
             RETURNING * ;
             `,
           args: [input.actorId, input.nickname],
-        });
+        })
+
         client.release();
-        const updatedActorArr = result.rows[0];
+
+        const updatedActorArr = rows[0];
         const updatedActorObj = {
           id: updatedActorArr.id,
           firstName: updatedActorArr.first_name,
@@ -361,33 +401,39 @@ const resolvers = {
         pool = new Pool(config, POOL_CONNECTIONS);
       }
     },
+
     associateActorWithMovie: async (
-      _: any,
+      _a: string,
       {
         input,
-      }: { input: { movieId: String; actorId: String; respType: String } }
+      }: { input: { movieId: string; actorId: string; respType: string } }
     ) => {
       try {
-        const client: PoolClient = await pool.connect();
+        const client = await pool.connect();
         await client.queryObject({
           text: `
-          INSERT INTO obsidian_demo_schema.actor_films (film_id, actor_id)
-          VALUES ($1, $2)
+            INSERT INTO obsidian_demo_schema.actor_films (film_id, actor_id)
+            VALUES ($1, $2)
           `,
           args: [input.movieId, input.actorId],
         });
+
         client.release();
+
         if (input.respType === 'MOVIE') {
-          const client: PoolClient = await pool.connect();
-          const result = await client.queryObject({
+          const client = await pool.connect();
+
+          const {rows} = await client.queryObject<{id: number, title: string, genre: string, release_dt: number}>({
             text: `
               SELECT * FROM obsidian_demo_schema.films
               WHERE id = $1
               `,
             args: [input.movieId],
-          });
+          })
+
           client.release();
-          const MovieArr = result.rows[0];
+
+          const MovieArr = rows[0];
           const MovieObj = {
             id: MovieArr.id,
             title: MovieArr.title,
@@ -396,16 +442,19 @@ const resolvers = {
           };
           return MovieObj;
         } else {
-          const client: PoolClient = await pool.connect();
-          const result = await client.queryObject({
+          const client = await pool.connect();
+
+          const {rows} = await client.queryObject<{id: number, first_name: string, last_name: string, nickname?: number}>({
             text: `
               SELECT * FROM obsidian_demo_schema.actors
               WHERE id = $1
               `,
             args: [input.actorId],
-          });
+          })
+
           client.release();
-          const ActorArr = result.rows[0];
+
+          const ActorArr = rows[0];
           const ActorObj = {
             id: ActorArr.id,
             firstName: ActorArr.first_name,

@@ -1,8 +1,10 @@
-FROM hayd/alpine-deno:1.9.0
+FROM denoland/deno:1.11.3
 
 EXPOSE 3000
 
 WORKDIR /usr/app
+
+USER deno
 
 COPY . .
 

@@ -3,10 +3,10 @@ language: generic
 deploy:
   provider: elasticbeanstalk
   region: 'us-east-1'
-  app: 'obsidian-demo'
-  env: 'obsidian-demo-prod'
-  bucket_name: 'elasticbeanstalk-us-east-1-069525016859'
-  bucket_path: 'obsidian-demo'
+  app: 'obsidian-demonstration'
+  env: 'obs-demonstration-prod'
+  bucket_name: 'elasticbeanstalk-us-east-1-416954177761'
+  bucket_path: 'demonstration'
   access_key_id: '$AWS_ACCESS_KEY_ID'
   secret_access_key: '$AWS_SECRET_ACCESS_KEY'
   on:
